@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>yui3-ujs demo</title>
+		<meta name="csrf-param" content="authenticity_token"/>
+		<meta name="csrf-token" content="cf50faa3fe97702ca1ae"/>
+		<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?3.2.0/build/cssreset/reset-min.css&3.2.0/build/cssfonts/fonts-min.css&3.2.0/build/cssgrids/grids-min.css">
+		<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/3.2.0/build/cssbase/base-min.css">
+		<script type="text/javascript" charset="utf-8" src="http://yui.yahooapis.com/<%= params[:version] %>/build/yui/yui-min.js"></script>
+		<script src="/vendor/rails.js" type="text/javascript"></script>
+		<style type="text/css">
+			body { padding: 10px; }
+			#bd {
+				padding-left:350px;
+			}
+
+			#results {
+				margin-left:-350px;
+				width:350px;
+			}
+
+			#main {
+				width:100%;
+			}
+		</style>
+		<script type="text/javascript">
+			YUI().use('node', 'console', 'rails-ujs', function(Y) {
+				Y.on('domready', function() {
+					var r = new Y.Console({
+						newestOnTop: false,
+						style: 'block'
+					});
+					r.render('#yuiConsole');
+				});
+
+				var doc = Y.one('document');
+				var logEventType = function(event, response) { Y.log(event.type); };
+				
+				doc.delegate('ajax:before', logEventType, '*');
+				doc.delegate('ajax:after', logEventType, '*');
+				doc.delegate('ajax:create', logEventType, '*');
+				doc.delegate('ajax:complete', logEventType, '*');
+				
+				doc.delegate('ajax:success', function(event, response) {
+					Y.log(event.type + " - " + response.status);
+				}, '*');
+
+				doc.delegate('ajax:failure', function(event, response) {
+					Y.log(event.type + " - " + response.status);
+				}, '*');
+			});
+			
+			
+			function setAjaxResponse(event, response) {
+				document.getElementById('ajaxResponse').innerHTML = '<pre>' + 
+					"Event: " + event.type + "\n" +
+					"Status: " + response.status + "\n" + 
+					"Response Text: " + response.responseText + 
+					'</pre>';
+			}
+		</script>
+	</head>
+	<body class="yui3-skin-sam yui-skin-sam">
+		<div id="hd"><h1>yui3-ujs demo</h1></div>
+		<div id="bd" class="yui3-g">
+			<div id="results" class="yui3-u">
+				<div id="yuiConsole"></div>
+				<br><br>
+				<div id="ajaxResponse"></div>
+			</div>
+			<div id="main" class="yui3-u">
+				<h2>data-confirm</h2>
+				<a href="#confirmed" data-confirm="Are you sure?">Anchor</a>
+				<a href="/remote" data-confirm="Are you sure?" data-remote="true">Remote</a>
+				
+				<h2>data-method</h2>
+				<a id="link3" href="/redirect" data-method="post">Test post</a>
+
+				<h2>data-remote</h2>
+				<a id="link1" href="/remote" data-remote="true">Test ajax:success</a>
+				<a id="link2" href="/error" data-remote="true">Test ajax:failure</a>
+				<a id="link3" href="/remote" data-method="post" data-remote="true">Test post</a>
+				<script type="text/javascript">
+					YUI().use('node', 'event', 'rails-ujs', function(Y) {
+						Y.one('#link1').on('ajax:success', setAjaxResponse);
+						Y.one('#link2').on('ajax:failure', setAjaxResponse);
+					});
+				</script>
+				<form method="post" action="/sleep" data-remote="true">
+					<input type="text" name="test1" value="test" data-disable-with="Loading..."><br>
+					<input type="checkbox" name="test2" value="test" data-disable-with="Loading..."><br>
+					<input type="submit" name="submit1" value="Submit 1" data-disable-with="Submitting...">
+					<input type="submit" name="submit2" value="Submit 2">
+				</form>
+				
+				<h2>disable-with</h2>
+				<form method="get" action="/sleep" data-remote="true">
+					<input type="text" name="test1" value="test" data-disable-with="Loading..."><br>
+					<input type="checkbox" name="test2" value="test" data-disable-with="Loading..."><br>
+					<input type="submit" name="submit1" value="Submit 1" data-disable-with="Submitting...">
+					<input type="submit" name="submit2" value="Submit 2">
+				</form>
+				<br><br>
+				<form method="get" action="/redirect">
+					<input type="text" name="test1" value="test" data-disable-with="Loading..."><br>
+					<input type="submit" name="submit1" value="Submit 1">
+					<input type="submit" name="submit2" value="Submit 2">
+				</form>
+			</div>
+		</div>
+		<div id="ft"></div>
+	</body>
+</html>
