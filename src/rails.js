@@ -1,14 +1,14 @@
 (function() {
 
+var CONFIG = typeof YUI_CONFIG != 'undefined' ? YUI_CONFIG : {};
 var AJAX_EVENTS = ['before', 'after', 'create', 'complete', 'success', 'failure'];
 
-YUI.add('rails', function(Y) {
-
+YUI.add('rails-ujs', function(Y) {
+	// Adds support for broadcasting ajax events globally on node instances
 	function defineEvent(evtName) {
 		Y.Event.define(evtName, {
 			on: function(node, sub, notifier) {
-				console.log(sub);
-				sub._handle = Y.Global.on(evtName, function(e) {
+				sub.handle = Y.Global.on(evtName, function(e) {
 					if(Y.Node.getDOMNode(e.target) == Y.Node.getDOMNode(node)) {
 						notifier.fire.apply(notifier, arguments);
 					}
@@ -16,19 +16,20 @@ YUI.add('rails', function(Y) {
 			},
 
 			detach: function(node, sub) {
-				sub._handle.detach();
+				sub.handle.detach();
 			},
 			
-			delegate: function(node, subscription, notifier, filter) {
-				sub._handle = Y.Global.delegate(evtName, function(e) {
-					if(Y.Node.getDOMNode(e.target) == Y.Node.getDOMNode(node)) {
+			delegate: function(node, sub, notifier, filter) {
+				var compiledFilter = Y.delegate.compileFilter(filter);
+				sub.handle = Y.Global.on(evtName, function(e) {
+					if(compiledFilter(e.target, {currentTarget: node})) {
 						notifier.fire.apply(notifier, arguments);
 					}
-				}, filter);
+				});
 			},
 
-			detachDelegate: function(node, subscription, notifier, filter) {
-				sub._handle.detach();
+			detachDelegate: function(node, sub, notifier, filter) {
+				sub.handle.detach();
 			}
 
 		}, true);
@@ -38,10 +39,10 @@ YUI.add('rails', function(Y) {
 		defineEvent('ajax:' + AJAX_EVENTS[i]);
 	}
 
-}, '3.2.0', { requires: ['node', 'event-synthetic'] });
+}, '0.0.1', { requires: ['node', 'event-synthetic'] });
 
 
-YUI(typeof YUI_CONFIG != 'undefined' ? YUI_CONFIG : {}).use('event', 'event-custom', 'event-delegate', 'node', 'io-form', 'rails', function(Y) {
+YUI(CONFIG).use('event', 'event-delegate', 'node', 'io-form', 'rails-ujs', function(Y) {
 
 	var doc = Y.one(document);
 
@@ -55,7 +56,7 @@ YUI(typeof YUI_CONFIG != 'undefined' ? YUI_CONFIG : {}).use('event', 'event-cust
 			e.preventDefault();
 			return false;
 		}
-	}, 'a[data-confirm],input[data-confirm]');
+	}, 'a[data-confirm],input[data-confirm],button[data-confirm]');
 
 
 	/**
@@ -73,6 +74,7 @@ YUI(typeof YUI_CONFIG != 'undefined' ? YUI_CONFIG : {}).use('event', 'event-cust
 		if (element.get('tagName').toLowerCase() === 'form') {
 			cfg.method = element.get('method') || 'post';
 			url = element.get('action');
+			// form elements need to have an id for yui to serialize them
 			if(!element.get('id')) element.setAttribute('id', Y.guid('remoteForm'));
 			cfg.form = { id: element.get('id') };
 		}
@@ -82,9 +84,9 @@ YUI(typeof YUI_CONFIG != 'undefined' ? YUI_CONFIG : {}).use('event', 'event-cust
 		}
 		
 		cfg.on = {
-			start: 	  function(tid, response) { element.fire('ajax:create', {}, response); },
+			start:    function(tid, response) { element.fire('ajax:create', {}, response); },
 			complete: function(tid, response) { element.fire('ajax:complete', {}, response); },
-			success:  function(tid, response) {	element.fire('ajax:success', {}, response); },
+			success:  function(tid, response) { element.fire('ajax:success', {}, response); },
 			failure:  function(tid, response) { element.fire('ajax:failure', {}, response); }
 		};
 		
@@ -124,13 +126,13 @@ YUI(typeof YUI_CONFIG != 'undefined' ? YUI_CONFIG : {}).use('event', 'event-cust
 		if (method !== 'post') {
 			insertHiddenField(form, '_method', method);
 		}
-		if (csrfParam) {
+		if (csrfParam && csrfToken) {
 			insertHiddenField(form, csrfParam.getAttribute('content'), csrfToken.getAttribute('content'));
 		}
 		form.submit();
 	}
 	 
-	doc.delegate('click', function() {
+	doc.delegate('click', function(e) {
 		handleMethod(this);
 		e.preventDefault();
 	}, 'a[data-method]:not([data-remote])');
@@ -140,27 +142,24 @@ YUI(typeof YUI_CONFIG != 'undefined' ? YUI_CONFIG : {}).use('event', 'event-cust
 	 * disable-with
 	 */
 
-	var DISABLE_WITH_INPUT_SELECTOR           = 'input[data-disable-with]',
-		DISABLE_WITH_FORM_REMOTE_SELECTOR     = 'form[data-remote]:has('       + DISABLE_WITH_INPUT_SELECTOR + ')',
-		DISABLE_WITH_FORM_NOT_REMOTE_SELECTOR = 'form:not([data-remote]):has(' + DISABLE_WITH_INPUT_SELECTOR + ')';
-
-	var disableWithInputSelector = function() {
-		this.all(DISABLE_WITH_INPUT_SELECTOR).each(function(element) {
-			element.setData('enable-with', element.get('value'))
-				.set('value', element.getAttribute('data-disable-with'))
-				.setAttribute('disabled', 'disabled');
+	function disableFormElements() {
+		this.all('input[data-disable-with]').each(function(element) {
+			element.setData('enable-with', element.get('value'));
+			element.set('value', element.getAttribute('data-disable-with'));
+			element.setAttribute('disabled', 'disabled');
 		});
-	};
+	}
 
-	doc.delegate('ajax:before', disableWithInputSelector, DISABLE_WITH_FORM_REMOTE_SELECTOR);
-	doc.delegate('submit', disableWithInputSelector, DISABLE_WITH_FORM_NOT_REMOTE_SELECTOR);
-
-	doc.delegate('ajax:complete', function() {
-		this.all(DISABLE_WITH_INPUT_SELECTOR).each(function(element) {
-			element.removeAttribute('disabled').set('value', element.getData('enable-with'));
+	function enableFormElements() {
+		this.all('input[data-disable-with]').each(function(element) {
+			element.removeAttribute('disabled')
+			element.set('value', element.getData('enable-with'));
 		});
-	}, DISABLE_WITH_FORM_REMOTE_SELECTOR);
+	}
 
+	doc.delegate('submit', disableFormElements, 'form:not([data-remote])');
+	doc.delegate('ajax:before', disableFormElements, 'form[data-remote]');
+	doc.delegate('ajax:complete', enableFormElements, 'form[data-remote]');
 });
 
 })();
