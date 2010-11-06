@@ -1,6 +1,72 @@
 (function() {
 
-var CONFIG = typeof YUI_CONFIG != 'undefined' ? YUI_CONFIG : {};
+// Add support for bubbling submit events in IE
+// http://yuilibrary.com/projects/yui3/ticket/2528683
+YUI.add('rails-event-bubble', function(Y) {
+
+	// TODO: replace with http://yuilibrary.com/projects/yui3/ticket/2529119
+	// Technique from Juriy Zaytsev
+	// http://thinkweb2.com/projects/prototype/detecting-event-support-without-browser-sniffing/
+	function isEventSupported(eventName) {
+		var el = document.createElement('div');
+		eventName = 'on' + eventName;
+		var isSupported = (eventName in el);
+		if (!isSupported) {
+			el.setAttribute(eventName, 'return;');
+			isSupported = typeof el[eventName] == 'function';
+		}
+		el = null;
+		return isSupported;
+	}
+
+	var submitBubbles = isEventSupported('submit');
+		
+	if(!submitBubbles) {
+		Y.Event.define('submit', {
+
+			on: function(node, sub, notifier) {
+				sub.onHandle = Y.Event._attach(['submit', function(e) { 
+					notifier.fire.apply(notifier, arguments); 
+				}, node, this], { capture: true });
+			},
+
+			detach: function(node, sub) {
+				sub.onHandle.detach();
+			},
+
+			delegate: function(node, sub, notifier, filter) {
+				var compiledFilter = Y.delegate.compileFilter(filter);
+				sub.delegateHandle = Y.on('emulated:submit', function(e) {
+					if(compiledFilter(e.target, {currentTarget: node})) {
+						var submitEvent = e.details[0];
+						var ret = notifier.fire.apply(notifier, arguments);
+						if(e.prevented) submitEvent.preventDefault();
+					}
+				});
+			},
+
+			detachDelegate: function(node, sub, notifier, filter) {
+				sub.delegateHandle.detach();
+			}
+
+		}, true);
+
+		// Discover elements that support onsubmit and onchange by listening to the focus event
+		Y.one(document).delegate('focus', function(focusEvent) {
+			// listen to the submit event if this input is in a form
+			var form = this.ancestor('form');
+			if (form && !form.getData('emulated:submit')) {
+				form.publish('emulated:submit', {broadcast: 1});
+				form.on('submit', function(e) {
+					return form.fire('emulated:submit', e);
+				});
+				form.setData('emulated:submit', true);
+			}
+		}, 'form input, form select, form button, form textarea');
+	}
+
+}, '0.0.1', { requires: ['event-delegate', 'event-focus', 'event-synthetic'] });
+
 var AJAX_EVENTS = ['before', 'after', 'create', 'complete', 'success', 'failure'];
 
 YUI.add('rails-ujs', function(Y) {
@@ -42,7 +108,7 @@ YUI.add('rails-ujs', function(Y) {
 }, '0.0.1', { requires: ['node', 'event-synthetic'] });
 
 
-YUI(CONFIG).use('event', 'event-delegate', 'node', 'io-form', 'rails-ujs', function(Y) {
+YUI().use('event', 'event-delegate', 'node', 'io-form', 'rails-ujs', 'rails-event-bubble', function(Y) {
 
 	var doc = Y.one(document);
 
