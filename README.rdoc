@@ -2,8 +2,6 @@
 
 Unobtrusive YUI 3 with Rails 3
 
-THIS RELEASE IS NOT READY FOR PRODUCTION. INTERNET EXPLORER IS NOT SUPPORTED AT THE MOMENT.
-
 == Following versions of YUI are supported:
 
 * 3.2.0
@@ -18,4 +16,4 @@ Add this before <tt><%= javascript_include_tag :defaults %></tt>:
 
 === Step 2
 
-Copy rails.js from http://github.com/epotocko/yui3-ujs/raw/master/src/rails.js into public/javascripts
+Copy rails.js from http://github.com/epotocko/yui3-ujs/raw/master/build/rails.js into public/javascripts
