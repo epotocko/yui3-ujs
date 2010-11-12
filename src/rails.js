@@ -20,6 +20,7 @@ YUI.add('rails-event-bubble', function(Y) {
 	}
 
 	var submitBubbles = isEventSupported('submit');
+	var EMULATED_SUBMIT = 'emulated:submit';
 		
 	if(!submitBubbles) {
 		Y.Event.define('submit', {
@@ -36,7 +37,7 @@ YUI.add('rails-event-bubble', function(Y) {
 
 			delegate: function(node, sub, notifier, filter) {
 				var compiledFilter = Y.delegate.compileFilter(filter);
-				sub.delegateHandle = Y.on('emulated:submit', function(e) {
+				sub.delegateHandle = Y.on(EMULATED_SUBMIT, function(e) {
 					if(compiledFilter(e.target, {currentTarget: node})) {
 						var submitEvent = e.details[0];
 						var ret = notifier.fire.apply(notifier, arguments);
@@ -55,12 +56,12 @@ YUI.add('rails-event-bubble', function(Y) {
 		Y.one(document).delegate('focus', function(focusEvent) {
 			// listen to the submit event if this input is in a form
 			var form = this.ancestor('form');
-			if (form && !form.getData('emulated:submit')) {
-				form.publish('emulated:submit', {broadcast: 1});
+			if (form && !form.getData(EMULATED_SUBMIT)) {
+				form.publish(EMULATED_SUBMIT, {broadcast: 1});
 				form.on('submit', function(e) {
-					return form.fire('emulated:submit', e);
+					return form.fire(EMULATED_SUBMIT, e);
 				});
-				form.setData('emulated:submit', true);
+				form.setData(EMULATED_SUBMIT, true);
 			}
 		}, 'form input, form select, form button, form textarea');
 	}
@@ -105,10 +106,10 @@ YUI.add('rails-ujs', function(Y) {
 		defineEvent('ajax:' + AJAX_EVENTS[i]);
 	}
 
-}, '0.0.1', { requires: ['node', 'event-synthetic'] });
+}, '0.0.1', { requires: ['node-base', 'event-synthetic'] });
 
 
-YUI().use('event', 'event-delegate', 'node', 'io-form', 'rails-ujs', 'rails-event-bubble', function(Y) {
+YUI().use('node-base', 'node-event-delegate', 'io-form', 'rails-ujs', 'rails-event-bubble', function(Y) {
 
 	var doc = Y.one(document);
 
@@ -129,7 +130,8 @@ YUI().use('event', 'event-delegate', 'node', 'io-form', 'rails-ujs', 'rails-even
 	 * data-remote
 	 */
 
-	function handleRemote(element) {
+	function handleRemote(e) {
+		var element = this;
 		for(var i = 0; i < AJAX_EVENTS.length; i++) {
 			element.publish('ajax:' + AJAX_EVENTS[i], {broadcast: 2});
 		}
@@ -159,18 +161,11 @@ YUI().use('event', 'event-delegate', 'node', 'io-form', 'rails-ujs', 'rails-even
 		Y.io(url, cfg);
 		
 		element.fire('ajax:after');
+		e.preventDefault();
 	}
 
-	doc.delegate('submit', function(e) {
-		handleRemote(this);
-		e.preventDefault();
-	}, 'form[data-remote]');
-	
-	doc.delegate('click', function(e) {
-		handleRemote(this);
-		e.preventDefault();
-	}, 'a[data-remote],input[data-remote]');
-
+	doc.delegate('submit', handleRemote, 'form[data-remote]');
+	doc.delegate('click', handleRemote, 'a[data-remote]');
 	
 	/**
 	 * data-method
@@ -180,8 +175,9 @@ YUI().use('event', 'event-delegate', 'node', 'io-form', 'rails-ujs', 'rails-even
 		form.insert(Y.Node.create('<input/>').setAttrs({ type: 'hidden', name: name, value: value }));
 	}
 
-	function handleMethod(element) {
-		var method = element.getAttribute('data-method'),
+	function handleMethod(e) {
+		var element = this,
+			method = element.getAttribute('data-method'),
 			url = element.get('href'),
 			csrfParam = Y.one('meta[name=csrf-param]'),
 			csrfToken = Y.one('meta[name=csrf-token]');
@@ -196,20 +192,19 @@ YUI().use('event', 'event-delegate', 'node', 'io-form', 'rails-ujs', 'rails-even
 			insertHiddenField(form, csrfParam.getAttribute('content'), csrfToken.getAttribute('content'));
 		}
 		form.submit();
+		e.preventDefault();
 	}
 	 
-	doc.delegate('click', function(e) {
-		handleMethod(this);
-		e.preventDefault();
-	}, 'a[data-method]:not([data-remote])');
+	doc.delegate('click', handleMethod, 'a[data-method]:not([data-remote])');
 
 
 	/**
 	 * disable-with
 	 */
-
+	var DISABLE_WITH_SELECTOR = 'input[type=submit][data-disable-with]';
+	
 	function disableFormElements() {
-		this.all('input[data-disable-with]').each(function(element) {
+		this.all(DISABLE_WITH_SELECTOR).each(function(element) {
 			element.setData('enable-with', element.get('value'));
 			element.set('value', element.getAttribute('data-disable-with'));
 			element.setAttribute('disabled', 'disabled');
@@ -217,7 +212,7 @@ YUI().use('event', 'event-delegate', 'node', 'io-form', 'rails-ujs', 'rails-even
 	}
 
 	function enableFormElements() {
-		this.all('input[data-disable-with]').each(function(element) {
+		this.all(DISABLE_WITH_SELECTOR).each(function(element) {
 			element.removeAttribute('disabled')
 			element.set('value', element.getData('enable-with'));
 		});
