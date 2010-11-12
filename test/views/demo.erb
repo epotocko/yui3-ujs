@@ -9,7 +9,7 @@
 		</script>
 		<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?3.2.0/build/cssreset/reset-min.css&3.2.0/build/cssfonts/fonts-min.css&3.2.0/build/cssgrids/grids-min.css">
 		<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/3.2.0/build/cssbase/base-min.css">
-		<script type="text/javascript" charset="utf-8" src="http://yui.yahooapis.com/<%= params[:version] %>/build/yui/yui-min.js"></script>
+		<script type="text/javascript" charset="utf-8" src="http://yui.yahooapis.com/<%= params[:version] %>/build/yui/yui.js"></script>
 		<script src="/vendor/rails.js" type="text/javascript"></script>
 		<style type="text/css">
 			body { padding: 10px; }
@@ -25,9 +25,11 @@
 			#main {
 				width:100%;
 			}
+			
+			.raw { font-family: monospace; }
 		</style>
 		<script type="text/javascript">
-			YUI().use('node', 'console', 'rails-ujs', function(Y) {
+			YUI().use('node-base', 'node-event-delegate', 'console', 'rails-ujs', function(Y) {
 				Y.on('domready', function() {
 					var r = new Y.Console({
 						newestOnTop: false,
@@ -53,13 +55,16 @@
 				}, '*');
 			});
 			
+			function showErrorMessage() {
+				alert('An error occurred');
+			}
 			
 			function setAjaxResponse(event, response) {
-				document.getElementById('ajaxResponse').innerHTML = '<pre>' + 
+				document.getElementById('ajaxResponse').innerHTML = ('<div class="raw">' + 
 					"Event: " + event.type + "\n" +
 					"Status: " + response.status + "\n" + 
 					"Response Text: " + response.responseText + 
-					'</pre>';
+					'</div>').replace(/\n/g, "<br>");
 			}
 		</script>
 	</head>
@@ -83,18 +88,27 @@
 				<a id="link1" href="/remote" data-remote="true">Test ajax:success</a>
 				<a id="link2" href="/error" data-remote="true">Test ajax:failure</a>
 				<a id="link3" href="/remote" data-method="post" data-remote="true">Test post</a>
-				<script type="text/javascript">
-					YUI().use('node', 'event', 'rails-ujs', function(Y) {
-						Y.one('#link1').on('ajax:success', setAjaxResponse);
-						Y.one('#link2').on('ajax:failure', setAjaxResponse);
-					});
-				</script>
-				<form method="post" action="/sleep" data-remote="true">
+				<form method="post" action="/sleep">
+					<input type="text" name="test2" value="test"><br>
+					<input type="submit" name="submit1" value="Submit 1" data-remote="true">
+				</form>
+				<form method="post" action="/sleep" data-remote="true" id="dataRemoteForm">
 					<input type="text" name="test1" value="test" data-disable-with="Loading..."><br>
-					<input type="checkbox" name="test2" value="test" data-disable-with="Loading..."><br>
+					<input type="text" name="test2" value="test"><br>
+					<input type="checkbox" name="test3" value="test"><br>
+					<input type="radio" name="test4" value="test"><br>
 					<input type="submit" name="submit1" value="Submit 1" data-disable-with="Submitting...">
 					<input type="submit" name="submit2" value="Submit 2">
 				</form>
+				<script type="text/javascript">
+					YUI().use('node-base', 'rails-ujs', function(Y) {
+						Y.one('#link1').on('ajax:success', setAjaxResponse);
+						Y.one('#link2').on('ajax:failure', setAjaxResponse);
+						Y.one('#link2').on('ajax:success', showErrorMessage);
+						Y.one('#dataRemoteForm').on('ajax:success', setAjaxResponse);
+						Y.one('#dataRemoteForm').on('ajax:failure', showErrorMessage);
+					});
+				</script>
 				
 				<h2>disable-with</h2>
 				<form method="get" action="/sleep" data-remote="true">

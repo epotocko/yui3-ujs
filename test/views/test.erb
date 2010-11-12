@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html id="html">
+<head>
+	<title>yui3-ujs test</title>
+	<script type="text/javascript">YUI_config = {filter:'raw',combine:false};</script>
+	<script type="text/javascript" charset="utf-8" src="http://yui.yahooapis.com/<%= params[:version] %>/build/yui/yui.js"></script>
+	<script src="/vendor/rails.js" type="text/javascript"></script>
+</head>
+<body class="yui3-skin-sam">
+	<div id="fixtures">
+		<div id="testConfirm">
+			<a data-confirm="Are you sure?" data-remote="true" id="confirmLink" href="/remote">Test</a>
+			<form action="/remote" method="get" data-remote="true">
+				<input data-confirm="Are you sure?" type="submit" value="Button" name="submit1" id="confirmInput"/>
+			</form>
+		</div>
+		<div id="testRemote">
+			<form action="/echo" method="post" id="remotePostForm" data-remote="true">
+				<input type="text" name="hello" value="world">
+				<input type="submit" name="submit1" id="remotePostSubmit" value="Submit">
+			</form>
+		</div>
+	</div>
+	<div id="yui-log"></div>
+	<script type="text/javascript">
+	YUI().use('rails-ujs', 'console', 'test', 'node-base', 'node-event-simulate', function(Y) {
+		var Assert = Y.Assert,
+			ArrayAssert = Y.ArrayAssert,
+			suite = new Y.Test.Suite("yuisuite");
+
+		new Y.Console({node: '#yui-log', height: '1000px' }).render('#yui-log');
+
+		suite.add(new Y.Test.Case({
+			name: 'data-confirm',
+
+			testConfirmYesLink: function() {
+				this._testConfirm(true, '#confirmLink');
+			},
+			
+			testConfirmNoLink: function() {
+				this._testConfirm(false, '#confirmLink');
+			},
+
+			testConfirmYesInput: function() {
+				this._testConfirm(true, '#confirmInput');
+			},
+			
+			testConfirmNoInput: function() {
+				this._testConfirm(false, '#confirmInput');
+			},
+			
+			_testConfirm: function(result, elementSelector) {
+				var test = this;
+				
+				var gotConfirm = false;
+				var oldWindowConfirm = window.confirm;
+				window.confirm = function(msg) {
+					gotConfirm = true;
+					return result;
+				};
+				
+				var element = Y.one(elementSelector);
+				Y.Event.purgeElement(element, false, 'ajax:success');
+				element.on('ajax:success', function(e, response) {
+					test.resume(function() {
+						if(result) {
+							Assert.areEqual(200, response.status, "Expected 200 status in ajax response");
+						}
+						else {
+							Assert.isTrue(false, "Should not send the ajax request");
+						}
+					});
+				});
+				window.setTimeout(function() {
+					test.resume(function() { 
+						Assert.isTrue(true); 
+					});
+				}, 2000);
+				element.simulate('click');
+				window.confirm = oldWindowConfirm;
+				Assert.areEqual(gotConfirm, true);
+				this.wait(3000);			
+			}
+		})); 
+		
+		suite.add(new Y.Test.Case({
+			name: 'data-remote',
+			
+			testPost: function() {
+				var test = this;
+				var form = Y.one('#remotePostForm');
+				var element = Y.one('#remotePostSubmit');
+				Y.Event.purgeElement(form, false, 'ajax:success');
+				form.on('ajax:success', function(e, response) {
+					test.resume(function() {
+						Assert.areEqual(200, response.status, "Expected 200 status in ajax response");
+						eval('var json = ' + response.responseText);
+						console.log(json);
+						Assert.areEqual("POST", json.method);
+						Assert.areEqual("world", json.params.hello);
+					});
+				});
+				element.simulate('click');
+				this.wait(3000);
+			}
+		}));
+		
+		suite.add(new Y.Test.Case({
+			name: 'data-method'
+		}));
+		
+		suite.add(new Y.Test.Case({
+			name: 'data-disable-with'
+		})); 
+
+		Y.Test.Runner.add(suite);
+
+		Y.on('load', function() {
+			Y.Test.Runner.run();
+		}, window);
+	});
+	</script>
+</body>
+</html>

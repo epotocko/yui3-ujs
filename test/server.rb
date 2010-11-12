@@ -10,7 +10,7 @@ dest_file = File.join(File.dirname(__FILE__), 'public', 'vendor', 'rails.js')
 before do
 	FileUtils.cp(source_file, dest_file)
 	params[:version] ||= DEFAULT_YUI_VERSION
-	headers 'Expires' => ' Mon, 26 Jul 1997 05:00:00 GMT', 'Cache-Control' => 'no-cache'
+	headers 'Expires' => 'Mon, 26 Jul 1997 05:00:00 GMT', 'Cache-Control' => 'no-cache'
 end
 
 get '/' do
@@ -25,8 +25,17 @@ get '/demo' do
 	erb :demo
 end
 
-get '/iebubble' do
-	erb :iebubble
+def echo(method)
+	headers 'Content-type' => 'application/json'
+	{ :method => method, :params => params }.to_json
+end
+
+get '/echo' do
+	echo('GET')
+end
+
+post '/echo' do
+	echo('POST')
 end
 
 get '/remote' do 
@@ -57,9 +66,9 @@ end
 post '/sleep' do
 	sleep(2)
 	if request.xhr?
-		'ajax request'
+		'ajax post request, params = ' + params.inspect
 	else
-		'non-ajax request'
+		'non-ajax post request'
 	end
 end
 
