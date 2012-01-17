@@ -172,7 +172,7 @@ YUI().use('node-base', 'node-event-delegate', 'selector-css3', 'io-form', 'rails
 	 */
 
 	function insertHiddenField(form, name, value) {
-		form.insert(Y.Node.create('<input/>').setAttrs({ type: 'hidden', name: name, value: value }));
+		form.insert(Y.Node.create(Y.Lang.sub('<input type="{type}" name="{name}" value="{value}"/>', {type:'hidden', name: name, value: value })));
 	}
 
 	function handleMethod(e) {
@@ -181,6 +181,8 @@ YUI().use('node-base', 'node-event-delegate', 'selector-css3', 'io-form', 'rails
 			url = element.get('href'),
 			csrfParam = Y.one('meta[name=csrf-param]'),
 			csrfToken = Y.one('meta[name=csrf-token]');
+			
+		if (element.getAttribute('data-remote')) return; // work-around for IE7,8 problem with :not([data-remote]) on delegate
 		
 		var form = Y.Node.create('<form method="POST" style="display:none"></form>').setAttribute('action', url);
 		element.get('parentNode').insert(form);
@@ -195,7 +197,7 @@ YUI().use('node-base', 'node-event-delegate', 'selector-css3', 'io-form', 'rails
 		e.preventDefault();
 	}
 	 
-	doc.delegate('click', handleMethod, 'a[data-method]:not([data-remote])');
+	doc.delegate('click', handleMethod, 'a[data-method]');
 
 
 	/**
