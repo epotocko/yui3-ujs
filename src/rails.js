@@ -66,7 +66,7 @@ YUI.add('rails-event-bubble', function(Y) {
 		}, 'form input, form select, form button, form textarea');
 	}
 
-}, '0.0.1', { requires: ['event-delegate', 'event-focus', 'event-synthetic'] });
+}, '0.0.2', { requires: ['event-delegate', 'event-focus', 'event-synthetic'] });
 
 var AJAX_EVENTS = ['before', 'after', 'create', 'complete', 'success', 'failure'];
 
@@ -106,7 +106,7 @@ YUI.add('rails-ujs', function(Y) {
 		defineEvent('ajax:' + AJAX_EVENTS[i]);
 	}
 
-}, '0.0.1', { requires: ['node-base', 'event-synthetic'] });
+}, '0.0.2', { requires: ['node-base', 'event-synthetic'] });
 
 
 YUI().use('node-base', 'node-event-delegate', 'selector-css3', 'io-form', 'rails-ujs', 'rails-event-bubble', function(Y) {
