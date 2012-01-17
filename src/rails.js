@@ -133,7 +133,7 @@ YUI().use('node-base', 'node-event-delegate', 'selector-css3', 'io-form', 'rails
 	function handleRemote(e) {
 		var element = this;
 		for(var i = 0; i < AJAX_EVENTS.length; i++) {
-			element.publish('ajax:' + AJAX_EVENTS[i], {broadcast: 2});
+			element.publish('ajax:' + AJAX_EVENTS[i], {broadcast: 2, emitFacade: true});
 		}
 
 		var url, cfg = {};
