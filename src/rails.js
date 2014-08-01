@@ -66,7 +66,7 @@ YUI.add('rails-event-bubble', function(Y) {
 		}, 'form input, form select, form button, form textarea');
 	}
 
-}, '0.0.2', { requires: ['event-delegate', 'event-focus', 'event-synthetic'] });
+}, '0.0.3', { requires: ['event-delegate', 'event-focus', 'event-synthetic'] });
 
 var AJAX_EVENTS = ['before', 'after', 'create', 'complete', 'success', 'failure'];
 
@@ -105,39 +105,20 @@ YUI.add('rails-ujs', function(Y) {
 	for(var i = 0; i < AJAX_EVENTS.length; i++) {
 		defineEvent('ajax:' + AJAX_EVENTS[i]);
 	}
+	
+	Y.Rails = {};
 
-}, '0.0.2', { requires: ['node-base', 'event-synthetic'] });
-
-
-YUI().use('node-base', 'node-event-delegate', 'selector-css3', 'io-form', 'rails-ujs', 'rails-event-bubble', function(Y) {
-
-	var doc = Y.one(document);
-
-	/**
-	 * data-confirm
-	 */
-
-	doc.delegate('click', function(e) {
-		var message = this.getAttribute('data-confirm');
-		if(!(!message || confirm(message))) {
-			e.preventDefault();
-			return false;
-		}
-	}, 'a[data-confirm],input[data-confirm],button[data-confirm]');
-
-
-	/**
-	 * data-remote
-	 */
-
-	function handleRemote(e) {
-		var element = this;
+	Y.Rails.handleRemote = function(element) {
 		for(var i = 0; i < AJAX_EVENTS.length; i++) {
 			element.publish('ajax:' + AJAX_EVENTS[i], {broadcast: 2, emitFacade: true});
 		}
 
 		var url, cfg = {};
-		var event = element.fire('ajax:before');
+		var eventResult = element.fire('ajax:before');
+		
+		if(eventResult == false) {
+			return false;
+		}
 
 		if (element.get('tagName').toLowerCase() === 'form') {
 			cfg.method = element.get('method') || 'post';
@@ -161,28 +142,17 @@ YUI().use('node-base', 'node-event-delegate', 'selector-css3', 'io-form', 'rails
 		Y.io(url, cfg);
 		
 		element.fire('ajax:after');
-		e.preventDefault();
 	}
-
-	doc.delegate('submit', handleRemote, 'form[data-remote]');
-	doc.delegate('click', handleRemote, 'a[data-remote]');
 	
-	/**
-	 * data-method
-	 */
-
 	function insertHiddenField(form, name, value) {
-		form.insert(Y.Node.create(Y.Lang.sub('<input type="{type}" name="{name}" value="{value}"/>', {type:'hidden', name: name, value: value })));
+		form.insert(Y.Node.create('<input type="hidden"/>').setAttrs({ name: name, value: value }));
 	}
-
-	function handleMethod(e) {
-		var element = this,
-			method = element.getAttribute('data-method'),
+	
+	Y.Rails.handleMethod = function(element) {
+		var method = element.getAttribute('data-method'),
 			url = element.get('href'),
 			csrfParam = Y.one('meta[name=csrf-param]'),
 			csrfToken = Y.one('meta[name=csrf-token]');
-			
-		if (element.getAttribute('data-remote')) return; // work-around for IE7,8 problem with :not([data-remote]) on delegate
 		
 		var form = Y.Node.create('<form method="POST" style="display:none"></form>').setAttribute('action', url);
 		element.get('parentNode').insert(form);
@@ -194,10 +164,49 @@ YUI().use('node-base', 'node-event-delegate', 'selector-css3', 'io-form', 'rails
 			insertHiddenField(form, csrfParam.getAttribute('content'), csrfToken.getAttribute('content'));
 		}
 		form.submit();
+	}
+
+}, '0.0.3', { requires: ['node-base', 'event-synthetic', 'node-event-delegate', 'selector-css3', 'io-form', 'rails-event-bubble'] });
+
+YUI().use('node-base', 'node-event-delegate', 'selector-css3', 'rails-ujs', 'rails-event-bubble', function(Y) {
+
+	var doc = Y.one(document);
+
+	/**
+	 * data-confirm
+	 */
+
+	doc.delegate('click', function(e) {
+		var message = this.getAttribute('data-confirm');
+		if(!(!message || confirm(message))) {
+			e.preventDefault();
+			return false;
+		}
+	}, 'a[data-confirm],input[data-confirm],button[data-confirm]');
+
+
+	/**
+	 * data-remote
+	 */
+
+	function handleRemote(e) {
+		Y.Rails.handleRemote(this);
+		e.preventDefault();
+	}
+
+	doc.delegate('submit', handleRemote, 'form[data-remote]');
+	doc.delegate('click', handleRemote, 'a[data-remote]');
+	
+	/**
+	 * data-method
+	 */
+
+	function handleMethod(e) {
+		Y.Rails.handleMethod(this);
 		e.preventDefault();
 	}
 	 
-	doc.delegate('click', handleMethod, 'a[data-method]');
+	doc.delegate('click', handleMethod, 'a[data-method]:not([data-remote])');
 
 
 	/**
