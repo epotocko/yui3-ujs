@@ -3,53 +3,83 @@
 <head>
 	<title>yui3-ujs test</title>
 	<script type="text/javascript">YUI_config = {filter:'raw',combine:false};</script>
-	<script type="text/javascript" charset="utf-8" src="http://yui.yahooapis.com/<%= params[:version] %>/build/yui/yui.js"></script>
+	<script type="text/javascript" charset="utf-8" src="http://yui.yahooapis.com/<%= @yui_version %>/build/yui/yui.js"></script>
 	<script src="/vendor/rails.js" type="text/javascript"></script>
 </head>
 <body class="yui3-skin-sam">
+	<div id="settings"></div>
+	<div id="info">Loading...</div>
+	
 	<div id="fixtures">
 		<div id="testConfirm">
-			<a data-confirm="Are you sure?" data-remote="true" id="confirmLink" href="/remote">Test</a>
-			<form action="/remote" method="get" data-remote="true">
+			<a data-confirm="Are you sure?" data-remote="true" id="confirmLink" href="/echo">Test</a>
+			<form id="confirmForm" action="/echo" method="get" data-remote="true">
 				<input data-confirm="Are you sure?" type="submit" value="Button" name="submit1" id="confirmInput"/>
 			</form>
 		</div>
 		<div id="testRemote">
+			<a id="remotePostLink" href="/echo" data-method="post" data-remote="true">Remote POST</a>
 			<form action="/echo" method="post" id="remotePostForm" data-remote="true">
 				<input type="text" name="hello" value="world">
 				<input type="submit" name="submit1" id="remotePostSubmit" value="Submit">
 			</form>
 		</div>
+		<div id="testMethod">
+			<a id="dataMethodPostLink" href="/redirect" data-method="post">Do a POST</a>
+		</div>
+		<div id="testSimulate">
+			<a id="linkElement" href="#">Test</a>
+		</div>
 	</div>
 	<div id="yui-log"></div>
 	<script type="text/javascript">
+	function clog(msg) {
+		if(typeof console !== undefined && console.log) {
+			console.log(msg);
+		}
+	}
 	YUI().use('rails-ujs', 'console', 'test', 'node-base', 'node-event-simulate', function(Y) {
+
+		
+		clog("Imports...");
 		var Assert = Y.Assert,
 			ArrayAssert = Y.ArrayAssert,
-			suite = new Y.Test.Suite("yuisuite");
+			suite = new Y.Test.Suite("yuisuite"),
+			parseJson = function(json) { eval('var obj = ' + json); return obj; };
 
+		clog("YUI Info...");
+		var info = document.getElementById('info');
+		info.innerHTML = "YUI Version: " + YUI.version + "<br>";
+		for(var x in Y.UA) {
+			if(Y.UA[x] && typeof Y.UA[x] != 'function') {
+				info.innerHTML += x + ": " + Y.UA[x] + "<br>";
+			}
+		}
+			
+		clog("Creating console...");
 		new Y.Console({node: '#yui-log', height: '1000px' }).render('#yui-log');
 
+		clog("Adding test cases...");
 		suite.add(new Y.Test.Case({
 			name: 'data-confirm',
 
+			testConfirmYesInput: function() {
+				this._testConfirm(true, '#confirmInput', '#confirmForm');
+			},
+
+			testConfirmNoInput: function() {
+				this._testConfirm(false, '#confirmInput', '#confirmForm');
+			},
+			
 			testConfirmYesLink: function() {
-				this._testConfirm(true, '#confirmLink');
+				this._testConfirm(true, '#confirmLink', '#confirmLink');
 			},
 			
 			testConfirmNoLink: function() {
-				this._testConfirm(false, '#confirmLink');
+				this._testConfirm(false, '#confirmLink', '#confirmLink');
 			},
 
-			testConfirmYesInput: function() {
-				this._testConfirm(true, '#confirmInput');
-			},
-			
-			testConfirmNoInput: function() {
-				this._testConfirm(false, '#confirmInput');
-			},
-			
-			_testConfirm: function(result, elementSelector) {
+			_testConfirm: function(result, elementSelector, listenerSelector) {
 				var test = this;
 				
 				var gotConfirm = false;
@@ -60,8 +90,9 @@
 				};
 				
 				var element = Y.one(elementSelector);
-				Y.Event.purgeElement(element, false, 'ajax:success');
-				element.on('ajax:success', function(e, response) {
+				var listenerElem = Y.one(listenerSelector);
+				Y.Event.purgeElement(listenerElem, false, 'ajax:success');
+				listenerElem.on('ajax:success', function(e, response) {
 					test.resume(function() {
 						if(result) {
 							Assert.areEqual(200, response.status, "Expected 200 status in ajax response");
@@ -71,18 +102,20 @@
 						}
 					});
 				});
-				window.setTimeout(function() {
-					test.resume(function() { 
-						Assert.isTrue(true); 
-					});
-				}, 2000);
+				if(!result) {
+					window.setTimeout(function() {
+						test.resume(function() { 
+							Assert.isTrue(true); 
+						});
+					}, 2000);
+				}
 				element.simulate('click');
 				window.confirm = oldWindowConfirm;
 				Assert.areEqual(gotConfirm, true);
 				this.wait(3000);			
 			}
 		})); 
-		
+
 		suite.add(new Y.Test.Case({
 			name: 'data-remote',
 			
@@ -95,27 +128,58 @@
 					test.resume(function() {
 						Assert.areEqual(200, response.status, "Expected 200 status in ajax response");
 						eval('var json = ' + response.responseText);
-						console.log(json);
 						Assert.areEqual("POST", json.method);
 						Assert.areEqual("world", json.params.hello);
 					});
 				});
 				element.simulate('click');
 				this.wait(3000);
+			},
+			
+			testPostLink: function() {
+				var test = this;
+				var element = Y.one('#remotePostLink');
+				Y.Event.purgeElement(element, false, 'ajax:success');
+				element.on('ajax:success', function(e, response) {
+					test.resume(function() {
+						Assert.areEqual(200, response.status, "Expected 200 status in ajax response");
+						var json = parseJson(response.responseText);
+						Assert.areEqual("POST", json.method);
+					});
+				});
+				element.simulate('click');
+				this.wait(3000);
 			}
+			
 		}));
-		
+
 		suite.add(new Y.Test.Case({
 			name: 'data-method'
+			// TODO
 		}));
 		
 		suite.add(new Y.Test.Case({
 			name: 'data-disable-with'
-		})); 
+			// TODO
+		}));
 
+		// simulate does not appear to work in IE 9 w/YUI 3.2.0 and below
+		// which causes all the unit tests to fail
+		// TODO: find workaround
+		suite.add(new Y.Test.Case({
+			name: 'element-simulate',
+
+			testSimulate: function() {
+				Y.one('#linkElement').simulate('click');
+			}
+		}));
+
+		clog("Adding suite...");
 		Y.Test.Runner.add(suite);
 
+		clog("On load...");
 		Y.on('load', function() {
+			clog("Run tests...");
 			Y.Test.Runner.run();
 		}, window);
 	});
